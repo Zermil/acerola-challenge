@@ -1,13 +1,9 @@
-build/*
 *.obj
 *.exe
 *.ilk
 *.pdb
 *.txt
 *.ini
-
-!build/shaders
-!build/SDL2.dll
 
 !LICENSE.txt
 !README.txt
