@@ -1,6 +1,9 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+#define STB_IMAGE_IMPLEMENTATION
+#include "./stb_image.h"
+
 #include "./utils.h"
 #include "./render.h"
 

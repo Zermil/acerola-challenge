@@ -11,6 +11,8 @@
 #define LINMATH_H_FUNC static inline
 #endif
 
+#define PI32 3.1415926535897932f
+
 #define LINMATH_H_DEFINE_VEC(n) \
 typedef float vec##n[n]; \
 LINMATH_H_FUNC void vec##n##_add(vec##n r, vec##n const a, vec##n const b) \

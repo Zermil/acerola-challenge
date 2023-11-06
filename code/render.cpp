@@ -8,6 +8,8 @@
 #include "./utils.h"
 #include "./render.h"
 
+#include "./stb_image.h"
+
 struct Vertex {
     vec3 position;
     vec3 normal;
@@ -19,7 +21,14 @@ struct Render_Internal {
     unsigned int vbo;
     unsigned int ebo;
 
+    unsigned int vao_skybox;
+    unsigned int vbo_skybox;
+    unsigned int ebo_skybox;
+    
     unsigned int shader_default;
+    unsigned int shader_skybox;
+    
+    unsigned int texture_skybox;
 
     Vertex vertices[MAX_VERTICES];
     size_t vertices_size;
@@ -80,6 +89,42 @@ internal void render_push_vertex(Vertex v)
     state.vertices_size += 1;
 }
 
+internal void render_generate_skybox()
+{
+    glActiveTexture(GL_TEXTURE0);
+    
+    glGenTextures(1, &state.texture_skybox);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, state.texture_skybox);
+    
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+
+    const char *faces[] = {
+        "./assets/skybox/right.png",
+        "./assets/skybox/left.png",
+        "./assets/skybox/top.png",
+        "./assets/skybox/bottom.png",
+        "./assets/skybox/front.png",
+        "./assets/skybox/back.png"
+    };
+    
+    for (unsigned int i = 0; i < 6; ++i) {
+        int w, h, channels;
+        unsigned char *data = stbi_load(faces[i], &w, &h, &channels, 0);
+
+        if (data == 0) {
+            fprintf(stderr, "[ERROR] :: Could not load texture: %s\n", faces[i]);
+            exit(1);
+        }
+    
+        glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB, w, h, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+        stbi_image_free(data); // @Robustness: This is kinda stupid
+    }    
+}
+
 // @Note: https://www.songho.ca/opengl/gl_sphere.html
 // we're mapping (r, theta, phi) -> (x, y, z) which is just using
 // spherical coordinates in a smart way.
@@ -137,8 +182,6 @@ internal void render_generate_sphere_data(unsigned int radius, unsigned int sect
 
 internal void render_init_sphere(unsigned int *vao, unsigned int *vbo, unsigned int *ebo)
 {
-    render_generate_sphere_data(SPHERE_RADIUS, SPHERE_SECTOR_COUNT, SPHERE_STACK_COUNT);
-    
     glGenVertexArrays(1, vao);
     glBindVertexArray(*vao);
 
@@ -167,7 +210,57 @@ internal void render_init_sphere(unsigned int *vao, unsigned int *vbo, unsigned 
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 }
 
-internal void render_init_default_shader(const char *vert, const char *frag)
+internal void render_init_skybox(unsigned int *vao, unsigned int *vbo, unsigned int *ebo)
+{
+    float vertices[] = {
+        -1.0f, -1.0f, 1.0f,
+        1.0f, -1.0f, 1.0f,
+        1.0f, -1.0f, -1.0f,
+        -1.0f, -1.0f, -1.0f,
+
+        -1.0f, 1.0f, 1.0f,
+        1.0f, 1.0f, 1.0f,
+        1.0f, 1.0f, -1.0f,
+        -1.0f, 1.0f, -1.0f
+    };
+
+    unsigned int indices[] = {
+        1, 2, 6,
+        6, 5, 1,
+        0, 4, 7,
+        7, 3, 0,
+        4, 5, 6,
+        6, 7, 4,
+        
+        0, 3, 2,
+        2, 1, 0,
+        0, 1, 5,
+        5, 4, 0,
+        3, 7, 6,
+        6, 2, 3
+    };
+    
+    glGenVertexArrays(1, vao);
+    glBindVertexArray(*vao);
+
+    glGenBuffers(1, vbo);
+    glBindBuffer(GL_ARRAY_BUFFER, *vbo);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+    glGenBuffers(1, ebo);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, *ebo);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+
+    // POSITION
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void *) 0);
+    glEnableVertexAttribArray(0);
+
+    glBindVertexArray(0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+}
+
+internal unsigned int render_init_shader(const char *vert, const char *frag)
 {
     const char *vert_src = load_entire_file(vert);
     const char *frag_src = load_entire_file(frag);
@@ -212,30 +305,31 @@ internal void render_init_default_shader(const char *vert, const char *frag)
     glDeleteShader(vertex);
     glDeleteShader(fragment);
 
-    state.shader_default = shader_program;
+    return(shader_program);
 }
 
 internal void render_init_matrices()
 {
     mat4x4 projection = {0};
     mat4x4_identity(projection);
-    mat4x4_perspective(projection, 1.74f, 16.0f/9.0f, 0.1f, 100.0f);
+    mat4x4_perspective(projection, 1.74f, global_ctx.width / global_ctx.height, 0.1f, 100.0f);
     
     mat4x4 view = {0};
     mat4x4_identity(view);
 
-    vec3 eye = { 0.0f, 0.0f, 2.0f };
+    vec3 eye = { 0.0f, 0.0f, 1.5f };
     vec3 center = { 0.0f, 0.0f, 0.0f };
     vec3 up = { 0.0f, 1.0f, 0.0f };
     mat4x4_look_at(view, eye, center, up);
 
-    vec3 light = { -0.707107f, -0.707107f, 0.0 };   
+    vec3 light = { -0.58f, -0.58f, 0.58f };
+    
     glUseProgram(state.shader_default);
     
     glUniformMatrix4fv(glGetUniformLocation(state.shader_default, "projection"), 1, GL_FALSE, &projection[0][0]);
     glUniformMatrix4fv(glGetUniformLocation(state.shader_default, "view"), 1, GL_FALSE, &view[0][0]);
     glUniform3f(glGetUniformLocation(state.shader_default, "light_direction"), light[0], light[1], light[2]);
-    
+
     glUseProgram(0);
 }
 
@@ -244,12 +338,20 @@ void render_initialize_context()
     global_ctx.width = WIN_WIDTH;
     global_ctx.height = WIN_HEIGHT;
     global_ctx.window = render_create_window("A window", WIN_WIDTH, WIN_HEIGHT);
+
+    render_generate_sphere_data(SPHERE_RADIUS, SPHERE_SECTOR_COUNT, SPHERE_STACK_COUNT);
+    render_generate_skybox();
     
     render_init_sphere(&state.vao, &state.vbo, &state.ebo);
-    render_init_default_shader("./shaders/default.vert", "./shaders/default.frag");
+    render_init_skybox(&state.vao_skybox, &state.vbo_skybox, &state.ebo_skybox);
+    
+    state.shader_default = render_init_shader("./shaders/default.vert", "./shaders/default.frag");
+    state.shader_skybox = render_init_shader("./shaders/skybox.vert", "./shaders/skybox.frag");
     render_init_matrices();
     
     glEnable(GL_DEPTH_TEST);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 }
 
 void render_destroy_context()
@@ -259,7 +361,15 @@ void render_destroy_context()
     glDeleteVertexArrays(1, &state.vao);
     glDeleteBuffers(1, &state.vbo);
     glDeleteBuffers(1, &state.ebo);
+    
+    glDeleteVertexArrays(1, &state.vao_skybox);
+    glDeleteBuffers(1, &state.vbo_skybox);
+    glDeleteBuffers(1, &state.ebo_skybox);
+    
+    glDeleteTextures(1, &state.texture_skybox);
+    
     glDeleteProgram(state.shader_default);
+    glDeleteProgram(state.shader_skybox);
     
     SDL_Quit();
 }
@@ -270,8 +380,26 @@ void render_begin()
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
 
+internal void render_skybox()
+{
+    glUseProgram(state.shader_skybox);
+    
+    // @Note: Skybox should be rendered after everything for better performance
+    glDepthFunc(GL_LEQUAL);
+
+    glBindVertexArray(state.vao_skybox);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, state.texture_skybox);
+    glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
+    
+    glDepthFunc(GL_LESS);
+    
+    glBindVertexArray(0);
+}
+
 void render_end()
 {
+    render_skybox();
     SDL_GL_SwapWindow(global_ctx.window);
 }
 
@@ -283,9 +411,8 @@ void render_immediate_sphere(float angle)
     mat4x4_identity(model);
     mat4x4_rotate_Y(model, model, angle);
     glUniformMatrix4fv(glGetUniformLocation(state.shader_default, "model"), 1, GL_FALSE, &model[0][0]);
-    
+
     glBindVertexArray(state.vao);
     glDrawElements(GL_TRIANGLES, (GLsizei) state.indices_size, GL_UNSIGNED_INT, 0);
-    
     glBindVertexArray(0);
 }

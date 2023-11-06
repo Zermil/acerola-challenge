@@ -17,8 +17,6 @@
 #define SPHERE_STACK_COUNT 32
 #define SPHERE_RADIUS 1
 
-#define PI32 3.1415926535897932f
-
 struct Render_Context {
     SDL_Window *window;
     
