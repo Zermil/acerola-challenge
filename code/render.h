@@ -6,9 +6,6 @@
 #define WIN_WIDTH 1280
 #define WIN_HEIGHT 720
 
-#define FPS 60
-#define FRAME_MS (1000/FPS)
-
 #define MAX_QUADS (16 * 1024)
 #define MAX_VERTICES (MAX_QUADS * 4)
 #define MAX_INDICES (MAX_QUADS * 6)

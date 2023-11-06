@@ -65,6 +65,8 @@ internal SDL_Window *render_create_window(const char *window_name, unsigned int 
         fprintf(stderr, "[ERROR] :: Failed to initialize OpenGL context: %s\n", SDL_GetError());
         exit(1);
     }
+
+    SDL_GL_SetSwapInterval(0);
     
     printf("Window initialized\n");
     printf("------------------\n");
