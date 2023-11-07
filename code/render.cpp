@@ -4,10 +4,8 @@
 
 #include <glad/glad.h>
 
-#include "./linmath.h"
 #include "./utils.h"
 #include "./render.h"
-
 #include "./stb_image.h"
 
 struct Vertex {
@@ -316,21 +314,26 @@ internal void render_init_matrices()
     mat4x4_identity(projection);
     mat4x4_perspective(projection, 1.74f, global_ctx.width / global_ctx.height, 0.1f, 100.0f);
     
+    global_ctx.camera = {
+        { 0.0f, 0.0f, 2.5f }, // eye
+        { 0.0f, 0.0f, 0.0f }, // center
+        { 0.0f, 1.0f, 0.0f }  // up
+    };
+    
     mat4x4 view = {0};
     mat4x4_identity(view);
-
-    vec3 eye = { 0.0f, 0.0f, 1.5f };
-    vec3 center = { 0.0f, 0.0f, 0.0f };
-    vec3 up = { 0.0f, 1.0f, 0.0f };
-    mat4x4_look_at(view, eye, center, up);
+    mat4x4_look_at(view, global_ctx.camera.eye, global_ctx.camera.center, global_ctx.camera.up);
 
     vec3 light = { -0.58f, -0.58f, 0.58f };
     
     glUseProgram(state.shader_default);
-    
     glUniformMatrix4fv(glGetUniformLocation(state.shader_default, "projection"), 1, GL_FALSE, &projection[0][0]);
     glUniformMatrix4fv(glGetUniformLocation(state.shader_default, "view"), 1, GL_FALSE, &view[0][0]);
     glUniform3f(glGetUniformLocation(state.shader_default, "light_direction"), light[0], light[1], light[2]);
+
+    glUseProgram(state.shader_skybox);
+    glUniformMatrix4fv(glGetUniformLocation(state.shader_skybox, "projection"), 1, GL_FALSE, &projection[0][0]);
+    glUniformMatrix4fv(glGetUniformLocation(state.shader_skybox, "view"), 1, GL_FALSE, &view[0][0]);
 
     glUseProgram(0);
 }
@@ -340,7 +343,7 @@ void render_initialize_context()
     global_ctx.width = WIN_WIDTH;
     global_ctx.height = WIN_HEIGHT;
     global_ctx.window = render_create_window("A window", WIN_WIDTH, WIN_HEIGHT);
-
+    
     render_generate_sphere_data(SPHERE_RADIUS, SPHERE_SECTOR_COUNT, SPHERE_STACK_COUNT);
     render_generate_skybox();
     
@@ -382,8 +385,25 @@ void render_begin()
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
 
-internal void render_skybox()
+void render_end()
 {
+    SDL_GL_SwapWindow(global_ctx.window);
+}
+
+void render_immediate_sphere(float angle)
+{
+    mat4x4 model = {0};
+    mat4x4_identity(model);
+    mat4x4_rotate_Y(model, model, angle);
+    
+    // @Note: Sphere rendering
+    glUseProgram(state.shader_default);
+
+    glBindVertexArray(state.vao);
+    glDrawElements(GL_TRIANGLES, (GLsizei) state.indices_size, GL_UNSIGNED_INT, 0);
+    glBindVertexArray(0);
+
+    // @Note: Skybox rendering
     glUseProgram(state.shader_skybox);
     
     // @Note: Skybox should be rendered after everything for better performance
@@ -399,22 +419,17 @@ internal void render_skybox()
     glBindVertexArray(0);
 }
 
-void render_end()
-{
-    render_skybox();
-    SDL_GL_SwapWindow(global_ctx.window);
-}
-
-void render_immediate_sphere(float angle)
+void render_update_camera(mat4x4 view)
 {
     glUseProgram(state.shader_default);
+    glUniformMatrix4fv(glGetUniformLocation(state.shader_default, "view"), 1, GL_FALSE, &view[0][0]);
 
-    mat4x4 model = {0};
-    mat4x4_identity(model);
-    mat4x4_rotate_Y(model, model, angle);
-    glUniformMatrix4fv(glGetUniformLocation(state.shader_default, "model"), 1, GL_FALSE, &model[0][0]);
+    // @Note: Remove camera translation for skybox
+    view[3][0] = view[0][3] = 0.0f;
+    view[3][1] = view[1][3] = 0.0f;
+    view[3][2] = view[2][3] = 0.0f;
+    view[3][3] = 0.0f;
 
-    glBindVertexArray(state.vao);
-    glDrawElements(GL_TRIANGLES, (GLsizei) state.indices_size, GL_UNSIGNED_INT, 0);
-    glBindVertexArray(0);
+    glUseProgram(state.shader_skybox);
+    glUniformMatrix4fv(glGetUniformLocation(state.shader_skybox, "view"), 1, GL_FALSE, &view[0][0]);
 }

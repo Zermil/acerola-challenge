@@ -37,3 +37,20 @@ error:
     
     exit(1);
 }
+
+// @Note: Friendship ended with 'lerpf' now 'move_towards' is my new favourite function
+void move_towards(float *value, float target, float dt, float rate_up, float rate_down)
+{
+    float a = *value;
+
+    if (a > target) {
+        if (rate_down == -1.0f) rate_down = rate_up;
+        a -= rate_down * dt;
+        if (a < target) a = target;
+        *value = a;
+    } else if (a < target) {
+        a += rate_up * dt;
+        if (a > target) a = target;
+        *value = a;
+    }
+}

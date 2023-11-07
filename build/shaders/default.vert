@@ -6,14 +6,13 @@ layout (location = 2) in vec2 ver_uv;
 
 uniform mat4 projection;
 uniform mat4 view;
-uniform mat4 model;
 
 out vec3 normal;
 out vec2 uv;
 
 void main()
 {
-  gl_Position = projection * view * model * vec4(ver_pos, 1.0);
+  gl_Position = projection * view * vec4(ver_pos, 1.0);
   
   normal = ver_norm;
   uv = ver_uv;
