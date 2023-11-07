@@ -11,7 +11,7 @@ call %MSVC_PATH%\vcvars64.bat
 
 pushd %~dp0
 if not exist .\build mkdir build
-cl %CXXFLAGS% %INCLUDES% %FILES% /Fo:build\ /Fe:build\raycast.exe /link %LIBS% /SUBSYSTEM:WINDOWS
+cl %CXXFLAGS% %INCLUDES% %FILES% /Fo:build\ /Fe:build\fur.exe /link %LIBS% /SUBSYSTEM:WINDOWS
 
 cd build
 del *.obj
