@@ -16,15 +16,8 @@
 #define SPHERE_STACK_COUNT 32
 #define SPHERE_RADIUS 1
 
-struct Camera {
-    vec3 eye;
-    vec3 center;
-    vec3 up;
-};
-
 struct Render_Context {
     SDL_Window *window;
-    Camera camera;
     
     float width;
     float height;
@@ -37,7 +30,7 @@ void render_initialize_context();
 void render_destroy_context();
 void render_begin();
 void render_end();
-void render_immediate_sphere(float angle);
+void render_immediate_sphere();
 void render_update_camera(mat4x4 view);
 
 #endif // RENDER_H

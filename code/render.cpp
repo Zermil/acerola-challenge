@@ -36,6 +36,8 @@ struct Render_Internal {
 };
 
 Render_Context global_ctx = {0};
+
+// @Note: Dear CS Professors, I don't care - it's way easier with this being global
 global Render_Internal state = {0};
 
 internal SDL_Window *render_create_window(const char *window_name, unsigned int w, unsigned int h)
@@ -304,36 +306,21 @@ internal unsigned int render_init_shader(const char *vert, const char *frag)
     
     glDeleteShader(vertex);
     glDeleteShader(fragment);
-
+    
     return(shader_program);
 }
 
-internal void render_init_matrices()
+internal void render_init_projection(float w, float h)
 {
     mat4x4 projection = {0};
     mat4x4_identity(projection);
-    mat4x4_perspective(projection, 1.74f, global_ctx.width / global_ctx.height, 0.1f, 100.0f);
-    
-    global_ctx.camera = {
-        { 0.0f, 0.0f, 2.5f }, // eye
-        { 0.0f, 0.0f, 0.0f }, // center
-        { 0.0f, 1.0f, 0.0f }  // up
-    };
-    
-    mat4x4 view = {0};
-    mat4x4_identity(view);
-    mat4x4_look_at(view, global_ctx.camera.eye, global_ctx.camera.center, global_ctx.camera.up);
-
-    vec3 light = { -0.58f, -0.58f, 0.58f };
+    mat4x4_perspective(projection, 1.74f, w/h, 0.1f, 100.0f);
     
     glUseProgram(state.shader_default);
     glUniformMatrix4fv(glGetUniformLocation(state.shader_default, "projection"), 1, GL_FALSE, &projection[0][0]);
-    glUniformMatrix4fv(glGetUniformLocation(state.shader_default, "view"), 1, GL_FALSE, &view[0][0]);
-    glUniform3f(glGetUniformLocation(state.shader_default, "light_direction"), light[0], light[1], light[2]);
 
     glUseProgram(state.shader_skybox);
     glUniformMatrix4fv(glGetUniformLocation(state.shader_skybox, "projection"), 1, GL_FALSE, &projection[0][0]);
-    glUniformMatrix4fv(glGetUniformLocation(state.shader_skybox, "view"), 1, GL_FALSE, &view[0][0]);
 
     glUseProgram(0);
 }
@@ -352,7 +339,7 @@ void render_initialize_context()
     
     state.shader_default = render_init_shader("./shaders/default.vert", "./shaders/default.frag");
     state.shader_skybox = render_init_shader("./shaders/skybox.vert", "./shaders/skybox.frag");
-    render_init_matrices();
+    render_init_projection(global_ctx.width, global_ctx.height);
     
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_BLEND);
@@ -390,12 +377,8 @@ void render_end()
     SDL_GL_SwapWindow(global_ctx.window);
 }
 
-void render_immediate_sphere(float angle)
+void render_immediate_sphere()
 {
-    mat4x4 model = {0};
-    mat4x4_identity(model);
-    mat4x4_rotate_Y(model, model, angle);
-    
     // @Note: Sphere rendering
     glUseProgram(state.shader_default);
 
