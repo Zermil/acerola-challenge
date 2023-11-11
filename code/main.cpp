@@ -20,7 +20,7 @@
 #define ZOOM_FAR 3.0f
 
 #define ROTATION_BUMP 1.4f
-#define ROTATION_DAMP 1.2f
+#define ROTATION_DAMP 8.0f
 
 struct Camera {
     vec3 eye;
@@ -78,7 +78,8 @@ int main(int argc, char **argv)
                         SDL_CaptureMouse(SDL_TRUE);
 
                         vec2 v = { (float) e.motion.xrel, (float) e.motion.yrel };
-                        float mag = vec2_len(v) * ROTATION_BUMP;
+                        float mag = CLAMP(vec2_len(v) * ROTATION_BUMP, 12.0f, 40.0f);
+                        
                         
                         vec2 nv = {0};
                         vec2_norm(nv, v);
@@ -96,12 +97,14 @@ int main(int argc, char **argv)
                         rotation_speed[1] = 0.0f;
                     }
                 } break;
+
+                case SDL_KEYDOWN: {
+                    if (e.key.keysym.sym == SDLK_r) {
+                        render_reload_shaders();
+                    }
+                } break;
             }
         }
-        
-        render_begin();
-        render_immediate_sphere();
-        render_end();
 
         mat4x4 view = {0};
         mat4x4_identity(view);
@@ -109,16 +112,22 @@ int main(int argc, char **argv)
         mat4x4_rotate_X(view, view, view_angle[1]);
         mat4x4_rotate_Y(view, view, view_angle[0]);
         render_update_camera(view);
+
+        render_begin();
         
-        move_towards(&camera.eye[2], zoom_target, dt, ZOOM_RATE);
+        if (!global_ctx.reload_fail) render_immediate_sphere();
+        else render_error_screen();
+        
+        render_end();
         
         vec2 speed_over_time = { rotation_speed[0] * dt, rotation_speed[1] * dt };
         vec2_add(view_angle, view_angle, speed_over_time);
         view_angle[1] = CLAMP(view_angle[1], -PI32/2.0f, PI32/2.0f);
 
+        move_towards(&camera.eye[2], zoom_target, dt, ZOOM_RATE);
         move_towards(&rotation_speed[0], 0.0f, dt, ROTATION_DAMP);
         move_towards(&rotation_speed[1], 0.0f, dt, ROTATION_DAMP);
-
+        
         int wait_time = FRAME_MS - elapsed_time;
         if (wait_time > 0 && wait_time < FRAME_MS) SDL_Delay(wait_time);
     }

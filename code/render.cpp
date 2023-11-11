@@ -262,7 +262,7 @@ internal void render_init_skybox(unsigned int *vao, unsigned int *vbo, unsigned 
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 }
 
-internal unsigned int render_init_shader(const char *vert, const char *frag)
+internal bool render_init_shader(const char *vert, const char *frag, unsigned int *shader)
 {
     const char *vert_src = load_entire_file(vert);
     const char *frag_src = load_entire_file(frag);
@@ -278,7 +278,7 @@ internal unsigned int render_init_shader(const char *vert, const char *frag)
     if (!success) {
         glGetShaderInfoLog(vertex, 512, 0, error_log);
         fprintf(stderr, "[SHADER ERROR] :: Could not compile vertex shader \'%s\':\n\t%s", vert, error_log);
-        exit(1);
+        return(false);
     }
     
     unsigned int fragment = glCreateShader(GL_FRAGMENT_SHADER);
@@ -289,7 +289,7 @@ internal unsigned int render_init_shader(const char *vert, const char *frag)
     if (!success) {
         glGetShaderInfoLog(fragment, 512, 0, error_log);
         fprintf(stderr, "[SHADER ERROR] :: Could not compile fragment shader \'%s\':\n\t%s", frag, error_log);
-        exit(1);
+        return(false);
     }
 
     unsigned int shader_program = glCreateProgram();
@@ -301,13 +301,15 @@ internal unsigned int render_init_shader(const char *vert, const char *frag)
     if (!success) {
         glGetProgramInfoLog(shader_program, 512, 0, error_log);
         fprintf(stderr, "[SHADER ERROR] :: Could not link shaders \'%s\' & \'%s\':\n\t%s", vert, frag, error_log);
-        exit(1);
+        return(false);
     }
     
     glDeleteShader(vertex);
     glDeleteShader(fragment);
+
+    *shader = shader_program;
     
-    return(shader_program);
+    return(true);
 }
 
 internal void render_init_projection(float w, float h)
@@ -336,10 +338,8 @@ void render_initialize_context()
     
     render_init_sphere(&state.vao, &state.vbo, &state.ebo);
     render_init_skybox(&state.vao_skybox, &state.vbo_skybox, &state.ebo_skybox);
-    
-    state.shader_default = render_init_shader("./shaders/default.vert", "./shaders/default.frag");
-    state.shader_skybox = render_init_shader("./shaders/skybox.vert", "./shaders/skybox.frag");
-    render_init_projection(global_ctx.width, global_ctx.height);
+
+    render_reload_shaders();
     
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_BLEND);
@@ -377,6 +377,20 @@ void render_end()
     SDL_GL_SwapWindow(global_ctx.window);
 }
 
+void render_reload_shaders()
+{
+    // @Note: This could be a loop if this grows larger
+    bool load_default = render_init_shader("./shaders/default.vert", "./shaders/default.frag", &state.shader_default);
+    bool load_skybox = render_init_shader("./shaders/skybox.vert", "./shaders/skybox.frag", &state.shader_skybox);
+
+    if (load_default && load_skybox) {
+        global_ctx.reload_fail = false;
+        render_init_projection(global_ctx.width, global_ctx.height);
+    } else {
+        global_ctx.reload_fail = true;
+    }
+}
+
 void render_immediate_sphere()
 {
     // @Note: Sphere rendering
@@ -400,6 +414,12 @@ void render_immediate_sphere()
     glDepthFunc(GL_LESS);
     
     glBindVertexArray(0);
+}
+
+void render_error_screen()
+{
+    glClearColor(1.0f, 0.16f, 0.0f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
 
 void render_update_camera(mat4x4 view)
