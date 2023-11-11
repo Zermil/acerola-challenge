@@ -78,8 +78,7 @@ int main(int argc, char **argv)
                         SDL_CaptureMouse(SDL_TRUE);
 
                         vec2 v = { (float) e.motion.xrel, (float) e.motion.yrel };
-                        float mag = CLAMP(vec2_len(v) * ROTATION_BUMP, 12.0f, 40.0f);
-                        
+                        float mag = CLAMP(vec2_len(v) * ROTATION_BUMP, 12.0f, 20.0f);
                         
                         vec2 nv = {0};
                         vec2_norm(nv, v);

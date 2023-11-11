@@ -12,6 +12,7 @@ struct Vertex {
     vec3 position;
     vec3 normal;
     vec2 uv;
+    float shell_index;
 };
 
 struct Render_Internal {
@@ -42,14 +43,17 @@ global Render_Internal state = {0};
 
 internal SDL_Window *render_create_window(const char *window_name, unsigned int w, unsigned int h)
 {    
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
-    
     if (SDL_Init(SDL_INIT_VIDEO) != 0) {
         fprintf(stderr, "[ERROR] :: Could not initialize SDL2: %s\n", SDL_GetError());
         exit(1);
     }
+    
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
+
+    SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+    SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 16);
 
     SDL_Window *window = SDL_CreateWindow(window_name,
                                           SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
@@ -86,7 +90,7 @@ internal void render_push_index(unsigned int i)
 
 internal void render_push_vertex(Vertex v)
 {
-    assert(state.vertices_size < MAX_INDICES);
+    assert(state.vertices_size < MAX_VERTICES);
     state.vertices[state.vertices_size] = v;
     state.vertices_size += 1;
 }
@@ -123,7 +127,7 @@ internal void render_generate_skybox()
         }
     
         glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB, w, h, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
-        stbi_image_free(data); // @Robustness: This is kinda stupid
+        stbi_image_free(data); // @Robustness: This is kinda silly
     }    
 }
 
@@ -132,7 +136,7 @@ internal void render_generate_skybox()
 // spherical coordinates in a smart way.
 //
 // Also more info: https://www.youtube.com/watch?v=RkuBWEkBrZA
-internal void render_generate_sphere_data(unsigned int radius, unsigned int sectors, unsigned int stacks)
+internal void render_generate_sphere_data(float radius, unsigned int sectors, unsigned int stacks)
 {
     const float sector_step = 2.0f * PI32 / sectors;
     const float stack_step = PI32 / stacks;
@@ -160,7 +164,10 @@ internal void render_generate_sphere_data(unsigned int radius, unsigned int sect
             render_push_vertex(v);
         }
     }
+}
 
+internal void render_generate_sphere_indices(unsigned int sectors, unsigned int stacks)
+{
     // @Note: Generate indices
     for (unsigned int i = 0; i < stacks; ++i) {
         unsigned int k1 = i * (sectors + 1);
@@ -189,7 +196,7 @@ internal void render_init_sphere(unsigned int *vao, unsigned int *vbo, unsigned 
 
     glGenBuffers(1, vbo);
     glBindBuffer(GL_ARRAY_BUFFER, *vbo);
-    glBufferData(GL_ARRAY_BUFFER, MAX_VERTICES * sizeof(Vertex), state.vertices, GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, MAX_VERTICES * sizeof(Vertex), 0, GL_DYNAMIC_DRAW);
 
     glGenBuffers(1, ebo);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, *ebo);
@@ -332,8 +339,8 @@ void render_initialize_context()
     global_ctx.width = WIN_WIDTH;
     global_ctx.height = WIN_HEIGHT;
     global_ctx.window = render_create_window("A window", WIN_WIDTH, WIN_HEIGHT);
-    
-    render_generate_sphere_data(SPHERE_RADIUS, SPHERE_SECTOR_COUNT, SPHERE_STACK_COUNT);
+
+    render_generate_sphere_indices(SPHERE_SECTOR_COUNT, SPHERE_STACK_COUNT);
     render_generate_skybox();
     
     render_init_sphere(&state.vao, &state.vbo, &state.ebo);
@@ -342,6 +349,7 @@ void render_initialize_context()
     render_reload_shaders();
     
     glEnable(GL_DEPTH_TEST);
+    glEnable(GL_MULTISAMPLE);
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 }
@@ -397,9 +405,21 @@ void render_immediate_sphere()
     glUseProgram(state.shader_default);
 
     glBindVertexArray(state.vao);
-    glDrawElements(GL_TRIANGLES, (GLsizei) state.indices_size, GL_UNSIGNED_INT, 0);
-    glBindVertexArray(0);
+    
+    for (unsigned int i = 0; i < SPHERE_COUNT; ++i) {
+        state.vertices_size = 0;
+        
+        float radius = (i / (SPHERE_COUNT - 1.0f)) * 0.7f + 0.3f;
+        render_generate_sphere_data(radius, SPHERE_SECTOR_COUNT, SPHERE_STACK_COUNT);
 
+        glBindBuffer(GL_ARRAY_BUFFER, state.vbo);
+        glBufferSubData(GL_ARRAY_BUFFER, 0, state.vertices_size * sizeof(Vertex), state.vertices);
+        
+        glDrawElements(GL_TRIANGLES, (GLsizei) state.indices_size, GL_UNSIGNED_INT, 0);
+    }
+
+    glBindVertexArray(0);
+    
     // @Note: Skybox rendering
     glUseProgram(state.shader_skybox);
     

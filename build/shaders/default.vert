@@ -12,8 +12,8 @@ out vec2 uv;
 
 void main()
 {
-  gl_Position = projection * view * vec4(ver_pos, 1.0);
-  
-  normal = ver_norm;
-  uv = ver_uv;
+    gl_Position = projection * view * vec4(ver_pos, 1.0);
+    
+    normal = ver_norm;
+    uv = ver_uv;
 }
