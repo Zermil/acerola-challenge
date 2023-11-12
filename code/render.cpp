@@ -12,7 +12,8 @@ struct Vertex {
     vec3 position;
     vec3 normal;
     vec2 uv;
-    float shell_index;
+
+    float current_layer;
 };
 
 struct Render_Internal {
@@ -136,7 +137,7 @@ internal void render_generate_skybox()
 // spherical coordinates in a smart way.
 //
 // Also more info: https://www.youtube.com/watch?v=RkuBWEkBrZA
-internal void render_generate_sphere_data(float radius, unsigned int sectors, unsigned int stacks)
+internal void render_generate_sphere_data(float radius, unsigned int sectors, unsigned int stacks, float current_layer)
 {
     const float sector_step = 2.0f * PI32 / sectors;
     const float stack_step = PI32 / stacks;
@@ -158,7 +159,8 @@ internal void render_generate_sphere_data(float radius, unsigned int sectors, un
             Vertex v = {
                 { x, y, z }, // position
                 { x * ilen, y * ilen, z * ilen }, // normal
-                { (float) j / sectors, (float) i / stacks } // uv
+                { (float) j / sectors, (float) i / stacks }, // uv
+                current_layer // current_layer
             };
             
             render_push_vertex(v);
@@ -213,6 +215,10 @@ internal void render_init_sphere(unsigned int *vao, unsigned int *vbo, unsigned 
     // UV
     glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void *) offsetof(Vertex, uv));
     glEnableVertexAttribArray(2);
+
+    // CURRENT_LAYER
+    glVertexAttribPointer(3, 1, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void *) offsetof(Vertex, current_layer));
+    glEnableVertexAttribArray(3);
     
     glBindVertexArray(0);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -319,7 +325,7 @@ internal bool render_init_shader(const char *vert, const char *frag, unsigned in
     return(true);
 }
 
-internal void render_init_projection(float w, float h)
+internal void render_init_matrices(float w, float h)
 {
     mat4x4 projection = {0};
     mat4x4_identity(projection);
@@ -327,6 +333,8 @@ internal void render_init_projection(float w, float h)
     
     glUseProgram(state.shader_default);
     glUniformMatrix4fv(glGetUniformLocation(state.shader_default, "projection"), 1, GL_FALSE, &projection[0][0]);
+    glUniform1f(glGetUniformLocation(state.shader_default, "layers"), LAYERS_COUNT); 
+    glUniform1f(glGetUniformLocation(state.shader_default, "fur_length"), FUR_LENGTH); 
 
     glUseProgram(state.shader_skybox);
     glUniformMatrix4fv(glGetUniformLocation(state.shader_skybox, "projection"), 1, GL_FALSE, &projection[0][0]);
@@ -340,7 +348,10 @@ void render_initialize_context()
     global_ctx.height = WIN_HEIGHT;
     global_ctx.window = render_create_window("A window", WIN_WIDTH, WIN_HEIGHT);
 
+    // @Note: Indices are always the same as they depend only on stacks and segments
+    // meaning we can just precompute them and dynamically append sphere vertices later.
     render_generate_sphere_indices(SPHERE_SECTOR_COUNT, SPHERE_STACK_COUNT);
+    
     render_generate_skybox();
     
     render_init_sphere(&state.vao, &state.vbo, &state.ebo);
@@ -393,7 +404,7 @@ void render_reload_shaders()
 
     if (load_default && load_skybox) {
         global_ctx.reload_fail = false;
-        render_init_projection(global_ctx.width, global_ctx.height);
+        render_init_matrices(global_ctx.width, global_ctx.height);
     } else {
         global_ctx.reload_fail = true;
     }
@@ -406,11 +417,12 @@ void render_immediate_sphere()
 
     glBindVertexArray(state.vao);
     
-    for (unsigned int i = 0; i < SPHERE_COUNT; ++i) {
+    for (unsigned int i = 0; i < LAYERS_COUNT; ++i) {
         state.vertices_size = 0;
-        
-        float radius = (i / (SPHERE_COUNT - 1.0f)) * 0.7f + 0.3f;
-        render_generate_sphere_data(radius, SPHERE_SECTOR_COUNT, SPHERE_STACK_COUNT);
+
+        // @Note: Radius between 0.3 .. 1.0
+        float radius = (i / (LAYERS_COUNT - 1.0f)) * 0.7f + 0.3f;
+        render_generate_sphere_data(radius, SPHERE_SECTOR_COUNT, SPHERE_STACK_COUNT, (float) i);
 
         glBindBuffer(GL_ARRAY_BUFFER, state.vbo);
         glBufferSubData(GL_ARRAY_BUFFER, 0, state.vertices_size * sizeof(Vertex), state.vertices);

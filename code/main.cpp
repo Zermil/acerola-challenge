@@ -19,8 +19,8 @@
 #define ZOOM_NEAR 1.5f
 #define ZOOM_FAR 3.0f
 
-#define ROTATION_BUMP 1.4f
-#define ROTATION_DAMP 8.0f
+#define ROTATION_BUMP 1.5f
+#define ROTATION_DAMP 9.0f
 
 struct Camera {
     vec3 eye;

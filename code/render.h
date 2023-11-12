@@ -14,7 +14,9 @@
 
 #define SPHERE_SECTOR_COUNT 64
 #define SPHERE_STACK_COUNT 32
-#define SPHERE_COUNT 16
+
+#define LAYERS_COUNT 32
+#define FUR_LENGTH 0.01f
 
 struct Render_Context {
     SDL_Window *window;
