@@ -419,10 +419,7 @@ void render_immediate_sphere()
     
     for (unsigned int i = 0; i < LAYERS_COUNT; ++i) {
         state.vertices_size = 0;
-
-        // @Note: Radius between 0.3 .. 1.0
-        float radius = (i / (LAYERS_COUNT - 1.0f)) * 0.7f + 0.3f;
-        render_generate_sphere_data(radius, SPHERE_SECTOR_COUNT, SPHERE_STACK_COUNT, (float) i);
+        render_generate_sphere_data(SPHERE_RADIUS, SPHERE_SECTOR_COUNT, SPHERE_STACK_COUNT, (float) i);
 
         glBindBuffer(GL_ARRAY_BUFFER, state.vbo);
         glBufferSubData(GL_ARRAY_BUFFER, 0, state.vertices_size * sizeof(Vertex), state.vertices);

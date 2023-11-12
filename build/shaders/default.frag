@@ -33,7 +33,7 @@ void main()
     float h = layer / layers;
     
     vec3 colour = vec3(0.0);
-    if (rand > h * h) colour.g = 1.0;
+    if (rand > h * h) colour.g = 0.98;
     else discard;
 
     // @Note: Ambient occlusion

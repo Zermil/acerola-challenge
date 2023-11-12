@@ -8,15 +8,16 @@
 #define WIN_WIDTH 1280
 #define WIN_HEIGHT 720
 
-#define MAX_QUADS (32 * 1024)
+#define MAX_QUADS (16 * 1024)
 #define MAX_VERTICES (MAX_QUADS * 4)
 #define MAX_INDICES (MAX_QUADS * 6)
 
 #define SPHERE_SECTOR_COUNT 64
 #define SPHERE_STACK_COUNT 32
+#define SPHERE_RADIUS 0.5f
 
 #define LAYERS_COUNT 32
-#define FUR_LENGTH 0.01f
+#define FUR_LENGTH 0.4f
 
 struct Render_Context {
     SDL_Window *window;
