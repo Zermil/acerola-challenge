@@ -17,7 +17,7 @@ out float layer;
 void main()
 {
     float shell_height = current_layer / layers;
-    shell_height = pow(shell_height, 0.01);
+    shell_height = pow(shell_height, fur_length);
     
     vec3 pos = ver_pos;
 
