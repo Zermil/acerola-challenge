@@ -9,6 +9,8 @@
 #include "./utils.h"
 #include "./render.h"
 
+#include "./imgui/imgui_impl_sdl2.h"
+
 #define FPS 60
 #define FRAME_MS (1000/FPS)
 
@@ -16,7 +18,7 @@
 #define ZOOM_UP 0.95f
 #define ZOOM_DOWN 1.09f
 
-#define ZOOM_NEAR 1.5f
+#define ZOOM_NEAR 1.2f
 #define ZOOM_FAR 3.0f
 
 #define ROTATION_BUMP 1.5f
@@ -59,6 +61,9 @@ int main(int argc, char **argv)
         
         SDL_Event e = {0};
         while (SDL_PollEvent(&e)) {
+            ImGui_ImplSDL2_ProcessEvent(&e);
+            if (ImGui::GetIO().WantCaptureMouse) break;
+            
             switch (e.type) {
                 case SDL_QUIT: {
                     should_quit = true;
@@ -102,6 +107,12 @@ int main(int argc, char **argv)
                         render_reload_shaders();
                     }
                 } break;
+
+                case SDL_WINDOWEVENT: {
+                    if (e.window.event == SDL_WINDOWEVENT_RESIZED) {
+                        render_resize_window(e.window.data1, e.window.data2);
+                    }
+                }
             }
         }
 
@@ -114,8 +125,12 @@ int main(int argc, char **argv)
 
         render_begin();
         
-        if (!global_ctx.reload_fail) render_immediate_sphere();
-        else render_error_screen();
+        if (!global_ctx.reload_fail) {
+            render_sphere_controls();
+            render_immediate_sphere();
+        } else {
+            render_error_screen();
+        }
         
         render_end();
         

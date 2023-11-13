@@ -6,7 +6,7 @@ in float layer;
 
 out vec4 fragColor;
 
-uniform float layers;
+uniform int layers;
 
 float hash(uint x)
 {
@@ -18,9 +18,13 @@ float hash(uint x)
 void main()
 {    
     const vec3 light_direction = vec3(0.58, 0.58, 0.58);
-    const float density = 100.0;
-    const float attenuation = 2.3;
+    const float density = 150.0;
+    const float attenuation = 1.3;
     const float ambient_bias = 0.1;
+    const float thickness = 1.8;
+    
+    // @Note: Layer height
+    float h = layer / layers;
     
     // @Note: Half lambert
     float light = clamp(dot(light_direction, normal), 0, 1) * 0.5 + 0.5;
@@ -29,17 +33,19 @@ void main()
     // @Note: Shell texturing at its core
     vec2 new_uv = uv * density;
     uint seed = uint(new_uv.x + 100) * uint(new_uv.y + 100) * uint(10);
-    float rand = mix(20.0, 150.0, hash(seed));
-    float h = layer / layers;
-    
-    vec3 colour = vec3(0.0);
-    if (rand > h * h) colour.g = 0.98;
-    else discard;
+    float rand = mix(0.9, 1.1, hash(seed));
 
-    // @Note: Ambient occlusion
-    float ambient = pow(h, attenuation);
-    ambient += ambient_bias;
+    // @Note: Not square-like shell texturing
+    vec2 local_uv = fract(new_uv) * 2.0 - 1.0;
+    float distance_from_center = length(local_uv);
+
+    if (distance_from_center > (thickness * (rand - h)) && layer > 0.0) {
+        discard;
+    }
+
+    // @Note: 'Ambient occlusion' (tm)
+    float ambient = pow(h, attenuation) + ambient_bias;
     ambient = clamp(ambient, 0.0, 1.0);
-    
-    fragColor = vec4(colour * ambient * vec3(light), 1.0);
+
+    fragColor = vec4(vec3(0.0, 0.98, 0.0) * ambient * vec3(light), 1.0);
 }

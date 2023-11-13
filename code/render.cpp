@@ -8,6 +8,10 @@
 #include "./render.h"
 #include "./stb_image.h"
 
+#include "./imgui/imgui.h"
+#include "./imgui/imgui_impl_sdl2.h"
+#include "./imgui/imgui_impl_opengl3.h"
+
 struct Vertex {
     vec3 position;
     vec3 normal;
@@ -35,6 +39,12 @@ struct Render_Internal {
 
     unsigned int indices[MAX_INDICES];
     size_t indices_size;
+
+    // @Note: This could be in some UI state or something similar
+    // instead of being here in render state -- render state is here
+    // because it's easier to work with opengl while also having some internal state as well
+    float fur_length;
+    int layers;
 };
 
 Render_Context global_ctx = {0};
@@ -59,19 +69,31 @@ internal SDL_Window *render_create_window(const char *window_name, unsigned int 
     SDL_Window *window = SDL_CreateWindow(window_name,
                                           SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
                                           w, h,
-                                          SDL_WINDOW_OPENGL);
+                                          SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
     if (window == 0) {
         fprintf(stderr, "[ERROR] :: Not enough memory to initialize SDL window: %s\n", SDL_GetError());
         exit(1);
     }
 
-    SDL_GL_CreateContext(window);
+    global_ctx.gl_context = SDL_GL_CreateContext(window);
     if (!gladLoadGLLoader((GLADloadproc) SDL_GL_GetProcAddress)) {
         fprintf(stderr, "[ERROR] :: Failed to initialize OpenGL context: %s\n", SDL_GetError());
         exit(1);
     }
 
+    SDL_GL_MakeCurrent(window, global_ctx.gl_context);
     SDL_GL_SetSwapInterval(0);
+
+    // @Note: Enable ImGUI
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO();
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
+
+    ImGui::StyleColorsDark();
+    ImGui_ImplSDL2_InitForOpenGL(window, global_ctx.gl_context);
+    ImGui_ImplOpenGL3_Init("#version 330");
     
     printf("Window initialized\n");
     printf("------------------\n");
@@ -198,7 +220,7 @@ internal void render_init_sphere(unsigned int *vao, unsigned int *vbo, unsigned 
 
     glGenBuffers(1, vbo);
     glBindBuffer(GL_ARRAY_BUFFER, *vbo);
-    glBufferData(GL_ARRAY_BUFFER, MAX_VERTICES * sizeof(Vertex), 0, GL_DYNAMIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, MAX_VERTICES * sizeof(Vertex), state.vertices, GL_STATIC_DRAW);
 
     glGenBuffers(1, ebo);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, *ebo);
@@ -325,7 +347,7 @@ internal bool render_init_shader(const char *vert, const char *frag, unsigned in
     return(true);
 }
 
-internal void render_init_matrices(float w, float h)
+internal void render_init_projection(float w, float h)
 {
     mat4x4 projection = {0};
     mat4x4_identity(projection);
@@ -333,12 +355,21 @@ internal void render_init_matrices(float w, float h)
     
     glUseProgram(state.shader_default);
     glUniformMatrix4fv(glGetUniformLocation(state.shader_default, "projection"), 1, GL_FALSE, &projection[0][0]);
-    glUniform1f(glGetUniformLocation(state.shader_default, "layers"), LAYERS_COUNT); 
-    glUniform1f(glGetUniformLocation(state.shader_default, "fur_length"), FUR_LENGTH); 
 
     glUseProgram(state.shader_skybox);
     glUniformMatrix4fv(glGetUniformLocation(state.shader_skybox, "projection"), 1, GL_FALSE, &projection[0][0]);
 
+    glUseProgram(0);
+}
+
+internal void render_prepare_default_uniform_values()
+{
+    state.fur_length = FUR_LENGTH;
+    state.layers = LAYERS_COUNT;
+
+    glUseProgram(state.shader_default);
+    glUniform1i(glGetUniformLocation(state.shader_default, "layers"), state.layers); 
+    glUniform1f(glGetUniformLocation(state.shader_default, "fur_length"), state.fur_length);
     glUseProgram(0);
 }
 
@@ -347,17 +378,18 @@ void render_initialize_context()
     global_ctx.width = WIN_WIDTH;
     global_ctx.height = WIN_HEIGHT;
     global_ctx.window = render_create_window("A window", WIN_WIDTH, WIN_HEIGHT);
-
+    
     // @Note: Indices are always the same as they depend only on stacks and segments
     // meaning we can just precompute them and dynamically append sphere vertices later.
     render_generate_sphere_indices(SPHERE_SECTOR_COUNT, SPHERE_STACK_COUNT);
-    
     render_generate_skybox();
     
     render_init_sphere(&state.vao, &state.vbo, &state.ebo);
     render_init_skybox(&state.vao_skybox, &state.vbo_skybox, &state.ebo_skybox);
 
     render_reload_shaders();
+    render_init_projection(global_ctx.width, global_ctx.height);
+    render_prepare_default_uniform_values();
     
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_MULTISAMPLE);
@@ -367,7 +399,8 @@ void render_initialize_context()
 
 void render_destroy_context()
 {
-    if (global_ctx.window) SDL_DestroyWindow(global_ctx.window);
+    SDL_GL_DeleteContext(global_ctx.gl_context);
+    SDL_DestroyWindow(global_ctx.window);
 
     glDeleteVertexArrays(1, &state.vao);
     glDeleteBuffers(1, &state.vbo);
@@ -381,18 +414,29 @@ void render_destroy_context()
     
     glDeleteProgram(state.shader_default);
     glDeleteProgram(state.shader_skybox);
+
+    ImGui_ImplOpenGL3_Shutdown();
+    ImGui_ImplSDL2_Shutdown();
+    ImGui::DestroyContext();
     
     SDL_Quit();
 }
 
 void render_begin()
 {
+    ImGui_ImplOpenGL3_NewFrame();
+    ImGui_ImplSDL2_NewFrame();
+    ImGui::NewFrame();
+    
     glClearColor(0.07f, 0.07f, 0.07f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
 
 void render_end()
 {
+    ImGui::Render();
+    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+    
     SDL_GL_SwapWindow(global_ctx.window);
 }
 
@@ -404,23 +448,41 @@ void render_reload_shaders()
 
     if (load_default && load_skybox) {
         global_ctx.reload_fail = false;
-        render_init_matrices(global_ctx.width, global_ctx.height);
     } else {
         global_ctx.reload_fail = true;
     }
 }
 
-void render_immediate_sphere()
+void render_sphere_controls()
 {
+    ImGui::Begin("Controls");
+    {
+        glUseProgram(state.shader_default);
+        
+        if (ImGui::SliderFloat("Fur length", &state.fur_length, 0.25f, 0.5f)) {
+            glUniform1f(glGetUniformLocation(state.shader_default, "fur_length"), state.fur_length);
+        }
+
+        if (ImGui::SliderInt("Layers", &state.layers, 8, LAYERS_COUNT)) {
+            glUniform1i(glGetUniformLocation(state.shader_default, "layers"), state.layers); 
+        }
+        
+        glUseProgram(0);
+    }
+    ImGui::End();
+}
+
+void render_immediate_sphere()
+{    
     // @Note: Sphere rendering
     glUseProgram(state.shader_default);
 
     glBindVertexArray(state.vao);
-    
+
     for (unsigned int i = 0; i < LAYERS_COUNT; ++i) {
         state.vertices_size = 0;
         render_generate_sphere_data(SPHERE_RADIUS, SPHERE_SECTOR_COUNT, SPHERE_STACK_COUNT, (float) i);
-
+        
         glBindBuffer(GL_ARRAY_BUFFER, state.vbo);
         glBufferSubData(GL_ARRAY_BUFFER, 0, state.vertices_size * sizeof(Vertex), state.vertices);
         
@@ -464,4 +526,13 @@ void render_update_camera(mat4x4 view)
 
     glUseProgram(state.shader_skybox);
     glUniformMatrix4fv(glGetUniformLocation(state.shader_skybox, "view"), 1, GL_FALSE, &view[0][0]);
+}
+
+void render_resize_window(int width, int height)
+{
+    global_ctx.width = (float) width;
+    global_ctx.height = (float) height;
+    
+    glViewport(0, 0, width, height);
+    render_init_projection(global_ctx.width, global_ctx.height);
 }
