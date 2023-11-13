@@ -448,6 +448,9 @@ void render_reload_shaders()
 
     if (load_default && load_skybox) {
         global_ctx.reload_fail = false;
+        
+        render_init_projection(global_ctx.width, global_ctx.height);
+        render_prepare_default_uniform_values();
     } else {
         global_ctx.reload_fail = true;
     }
@@ -457,17 +460,17 @@ void render_sphere_controls()
 {
     ImGui::Begin("Controls");
     {
-        glUseProgram(state.shader_default);
-        
         if (ImGui::SliderFloat("Fur length", &state.fur_length, 0.25f, 0.5f)) {
+            glUseProgram(state.shader_default);
             glUniform1f(glGetUniformLocation(state.shader_default, "fur_length"), state.fur_length);
+            glUseProgram(0);
         }
 
         if (ImGui::SliderInt("Layers", &state.layers, 8, LAYERS_COUNT)) {
-            glUniform1i(glGetUniformLocation(state.shader_default, "layers"), state.layers); 
-        }
-        
-        glUseProgram(0);
+            glUseProgram(state.shader_default);
+            glUniform1i(glGetUniformLocation(state.shader_default, "layers"), state.layers);
+            glUseProgram(0);
+        }        
     }
     ImGui::End();
 }
@@ -479,7 +482,7 @@ void render_immediate_sphere()
 
     glBindVertexArray(state.vao);
 
-    for (unsigned int i = 0; i < LAYERS_COUNT; ++i) {
+    for (int i = 0; i < state.layers; ++i) {
         state.vertices_size = 0;
         render_generate_sphere_data(SPHERE_RADIUS, SPHERE_SECTOR_COUNT, SPHERE_STACK_COUNT, (float) i);
         
