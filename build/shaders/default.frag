@@ -7,6 +7,7 @@ in float layer;
 out vec4 fragColor;
 
 uniform int layers;
+uniform float time;
 
 float hash(uint x)
 {
@@ -19,10 +20,10 @@ void main()
 {    
     const vec3 light_direction = vec3(0.58, 0.58, 0.58);
     const float density = 150.0;
-    const float attenuation = 1.3;
+    const float attenuation = 1.2;
     const float ambient_bias = 0.1;
-    const float thickness = 1.8;
-    
+    const float thickness = 2.0;
+
     // @Note: Layer height
     float h = layer / layers;
     
@@ -38,14 +39,20 @@ void main()
     // @Note: Not square-like shell texturing
     vec2 local_uv = fract(new_uv) * 2.0 - 1.0;
     float distance_from_center = length(local_uv);
+    float circ_radius = (thickness * (rand - h));
 
-    if (distance_from_center > (thickness * (rand - h)) && layer > 0.0) {
+    if (distance_from_center > circ_radius && layer > 0.0) {
         discard;
     }
 
-    // @Note: 'Ambient occlusion' (tm)
-    float ambient = pow(h, attenuation) + ambient_bias;
-    ambient = clamp(ambient, 0.0, 1.0);
+    const vec3 color_top = vec3(0.20, 0.90, 0.0);
+    const vec3 color_bot = vec3(0.42, 0.87, 0.0);
+    vec3 color = mix(color_bot, color_top, h);
 
-    fragColor = vec4(vec3(0.0, 0.98, 0.0) * ambient * vec3(light), 1.0);
+    float ambient = pow(h, attenuation);
+    ambient += ambient_bias;
+    ambient = clamp(ambient, 0.0, 1.0);
+    vec3 ambient_light = mix(vec3(0.41, 0.84, 0.66), vec3(1.0), ambient);
+
+    fragColor = vec4(color * ambient_light * light, 1.0);
 }

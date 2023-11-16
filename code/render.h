@@ -40,6 +40,7 @@ void render_reload_shaders();
 void render_sphere_controls();
 void render_immediate_sphere();
 void render_error_screen();
+void render_update_time(float time);
 void render_update_camera(mat4x4 view);
 void render_resize_window(int width, int height);
 

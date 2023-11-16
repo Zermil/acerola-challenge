@@ -21,8 +21,8 @@
 #define ZOOM_NEAR 1.2f
 #define ZOOM_FAR 3.0f
 
-#define ROTATION_BUMP 1.2f
-#define ROTATION_DAMP 8.0f
+#define ROTATION_BUMP 1.1f
+#define ROTATION_DAMP 9.0f
 
 struct Camera {
     vec3 eye;
@@ -47,10 +47,11 @@ int main(int argc, char **argv)
     float zoom_target = camera.eye[2];
     vec2 view_angle = {0};
     vec2 rotation_speed = {0};
-
+    mat4x4 view = {0};
+    
     unsigned int current_time = 0;
     unsigned int previous_time = SDL_GetTicks();
-
+    
     bool should_quit = false;
     while (!should_quit) {
         current_time = SDL_GetTicks();
@@ -116,12 +117,8 @@ int main(int argc, char **argv)
             }
         }
 
-        mat4x4 view = {0};
-        mat4x4_identity(view);
-        mat4x4_look_at(view, camera.eye, camera.center, camera.up);
-        mat4x4_rotate_X(view, view, view_angle[1]);
-        mat4x4_rotate_Y(view, view, view_angle[0]);
         render_update_camera(view);
+        render_update_time(SDL_GetTicks() / 1000.0f);
 
         render_begin();
         
@@ -133,7 +130,8 @@ int main(int argc, char **argv)
         }
         
         render_end();
-        
+
+        // @Note: Update camera values
         vec2 speed_over_time = { rotation_speed[0] * dt, rotation_speed[1] * dt };
         vec2_add(view_angle, view_angle, speed_over_time);
         view_angle[1] = CLAMP(view_angle[1], -PI32/2.0f, PI32/2.0f);
@@ -141,6 +139,12 @@ int main(int argc, char **argv)
         move_towards(&camera.eye[2], zoom_target, dt, ZOOM_RATE);
         move_towards(&rotation_speed[0], 0.0f, dt, ROTATION_DAMP);
         move_towards(&rotation_speed[1], 0.0f, dt, ROTATION_DAMP);
+
+        // @Note: Update camera matrix
+        mat4x4_identity(view); 
+        mat4x4_look_at(view, camera.eye, camera.center, camera.up);
+        mat4x4_rotate_X(view, view, view_angle[1]);
+        mat4x4_rotate_Y(view, view, view_angle[0]);
         
         int wait_time = FRAME_MS - elapsed_time;
         if (wait_time > 0 && wait_time < FRAME_MS) SDL_Delay(wait_time);

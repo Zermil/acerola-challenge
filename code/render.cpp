@@ -33,7 +33,7 @@ struct Render_Internal {
     unsigned int shader_skybox;
     
     unsigned int texture_skybox;
-
+    
     Vertex vertices[MAX_VERTICES];
     size_t vertices_size;
 
@@ -177,7 +177,7 @@ internal void render_generate_sphere_data(float radius, unsigned int sectors, un
 
             float x = rcos * cosf(sector_angle);
             float y = rcos * sinf(sector_angle);
-
+                
             Vertex v = {
                 { x, y, z }, // position
                 { x * ilen, y * ilen, z * ilen }, // normal
@@ -382,6 +382,7 @@ void render_initialize_context()
     // @Note: Indices are always the same as they depend only on stacks and segments
     // meaning we can just precompute them and dynamically append sphere vertices later.
     render_generate_sphere_indices(SPHERE_SECTOR_COUNT, SPHERE_STACK_COUNT);
+    render_generate_ssao();
     render_generate_skybox();
     
     render_init_sphere(&state.vao, &state.vbo, &state.ebo);
@@ -514,6 +515,12 @@ void render_error_screen()
 {
     glClearColor(1.0f, 0.16f, 0.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+}
+
+void render_update_time(float time)
+{
+    glUseProgram(state.shader_default);
+    glUniform1f(glGetUniformLocation(state.shader_default, "time"), time);
 }
 
 void render_update_camera(mat4x4 view)
