@@ -2,6 +2,8 @@
 
 Low level [OpenGL](https://www.opengl.org/) + [SDL2](https://www.libsdl.org/index.php) entry for [Acerola fur challenge](https://youtu.be/9dr-tRQzij4) using [ImGUI](https://github.com/ocornut/imgui) for UI
 
+![](./demo.gif)
+
 ## Controls
 
 - LMB + Mouse movement allows you to rotate the camera around the sphere.
@@ -9,4 +11,4 @@ Low level [OpenGL](https://www.opengl.org/) + [SDL2](https://www.libsdl.org/inde
 
 ## Compilation
 
-Remeber to change `build.bat` so that the variable `MSVC_PATH` points to the appropriate directory (the one with `vcvars64.bat` file in it)s
+Remeber to change `build.bat` so that the variable `MSVC_PATH` points to the appropriate directory (the one with `vcvars64.bat` file in it)
