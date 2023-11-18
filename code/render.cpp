@@ -342,6 +342,9 @@ internal bool render_init_shader(const char *vert, const char *frag, unsigned in
     glDeleteShader(vertex);
     glDeleteShader(fragment);
 
+    free((void *) vert_src);
+    free((void *) frag_src);
+    
     *shader = shader_program;
     
     return(true);
