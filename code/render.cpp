@@ -220,7 +220,7 @@ internal void render_init_sphere(unsigned int *vao, unsigned int *vbo, unsigned 
 
     glGenBuffers(1, vbo);
     glBindBuffer(GL_ARRAY_BUFFER, *vbo);
-    glBufferData(GL_ARRAY_BUFFER, MAX_VERTICES * sizeof(Vertex), state.vertices, GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, MAX_VERTICES * sizeof(Vertex), 0, GL_DYNAMIC_DRAW);
 
     glGenBuffers(1, ebo);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, *ebo);
@@ -382,7 +382,6 @@ void render_initialize_context()
     // @Note: Indices are always the same as they depend only on stacks and segments
     // meaning we can just precompute them and dynamically append sphere vertices later.
     render_generate_sphere_indices(SPHERE_SECTOR_COUNT, SPHERE_STACK_COUNT);
-    render_generate_ssao();
     render_generate_skybox();
     
     render_init_sphere(&state.vao, &state.vbo, &state.ebo);
@@ -394,8 +393,9 @@ void render_initialize_context()
     
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_MULTISAMPLE);
-    glEnable(GL_BLEND);
+    
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glEnable(GL_BLEND);
 }
 
 void render_destroy_context()
