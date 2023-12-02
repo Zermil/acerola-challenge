@@ -1,6 +1,6 @@
 #version 330 core
 
-in vec3 uv;
+varying vec3 uv;
 
 uniform samplerCube skybox;
 

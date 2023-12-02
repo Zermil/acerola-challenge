@@ -1,11 +1,11 @@
 #version 330 core
 
-layout (location = 0) in vec3 ver_pos;
+attribute vec3 ver_pos;
 
 uniform mat4 projection;
 uniform mat4 view;
 
-out vec3 uv;
+varying vec3 uv;
 
 void main()
 {

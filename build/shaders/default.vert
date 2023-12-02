@@ -1,9 +1,9 @@
 #version 330 core
 
-layout (location = 0) in vec3 ver_pos;
-layout (location = 1) in vec3 ver_norm;
-layout (location = 2) in vec2 ver_uv;
-layout (location = 3) in float current_layer;
+attribute vec3 ver_pos;
+attribute vec3 ver_norm;
+attribute vec2 ver_uv;
+attribute float current_layer;
 
 uniform mat4 projection;
 uniform mat4 view;
@@ -11,9 +11,9 @@ uniform int layers;
 uniform float fur_length;
 uniform float time;
 
-out vec3 normal;
-out vec2 uv;
-out float layer;
+varying vec3 normal;
+varying vec2 uv;
+varying float layer;
 
 void main()
 {

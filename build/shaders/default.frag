@@ -1,8 +1,8 @@
 #version 330 core
 
-in vec3 normal;
-in vec2 uv;
-in float layer;
+varying vec3 normal;
+varying vec2 uv;
+varying float layer;
 
 out vec4 fragColor;
 
